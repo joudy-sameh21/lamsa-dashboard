@@ -88,7 +88,7 @@ const Login = () => {
                     {error && <div style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
                     <CRow>
                       <CCol xs={6}>
-                        <CButton color="primary" className="px-4" type="submit">
+                        <CButton style={{ backgroundColor: 'rgb(125, 190, 125)'}} className="px-4" type="submit">
                           Login
                         </CButton>
                       </CCol>

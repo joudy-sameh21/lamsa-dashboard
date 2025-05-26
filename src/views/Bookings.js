@@ -45,7 +45,7 @@ function Bookings() {
 
   // Fetch users and housekeepers for dropdowns
   useEffect(() => {
-  fetch(`${import.meta.env.VITE_API_URL}/users`)
+  fetch(`${import.meta.env.VITE_API_URL}/user/getUsers`)
     .then((res) => res.json())
     .then((data) => setUsers(data?.data?.users || []));
    fetch(`${import.meta.env.VITE_API_URL}/housekeeper`)

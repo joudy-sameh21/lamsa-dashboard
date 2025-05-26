@@ -12,108 +12,61 @@ import {
   CButton,
   CForm,
   CFormInput,
-  CFormSelect,
   CRow,
   CCol,
   CAlert,
   CContainer,
-} from '@coreui/react'
+} from "@coreui/react";
 
 function Payments() {
   const [payments, setPayments] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [housekeepers, setHousekeepers] = useState([]);
-  const [form, setForm] = useState({
-    user: "",
-    housekeeper: "",
-    booking: "",
-    amount: "",
-    status: ""
-  });
+  const [form, setForm] = useState({ status: "" });
   const [editingId, setEditingId] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Fetch payments
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/payments`)
-      .then(res => res.json())
-      .then(data => setPayments(data.data || data.payments || []));
+    fetch(`${import.meta.env.VITE_API_URL}/payment`)
+      .then((res) => res.json())
+      .then((data) => setPayments(data.data || data.payments || []))
+      .catch((err) => setError("Failed to fetch payments"));
   }, []);
 
-  // Fetch users and housekeepers for dropdowns
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/users`)
-      .then(res => res.json())
-      .then(data => setUsers(data?.data?.users || []));
-    fetch(`${import.meta.env.VITE_API_URL}/housekeeper`)
-      .then(res => res.json())
-      .then(data => setHousekeepers(data?.data?.docs || []));
-  }, []);
+  // Handle input change
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  // Handle form input
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
-
-  // Create payment
-  const handleCreate = async e => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
-      if (!res.ok) throw new Error('Failed to create payment');
-      setSuccess('Payment created successfully!');
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Edit payment
-  const handleEdit = payment => {
+  // Start editing
+  const handleEdit = (payment) => {
     setEditingId(payment._id);
-    setForm({
-      user: payment.user || "",
-      housekeeper: payment.housekeeper || "",
-      booking: payment.booking || "",
-      amount: payment.amount || "",
-      status: payment.status || ""
-    });
+    setForm({ status: payment.status || "" });
   };
 
-  // Update payment
-  const handleUpdate = async e => {
+  // Submit update
+  const handleUpdate = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
+
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/payments/${editingId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/payment/${editingId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify({ status: form.status }),
       });
-      if (!res.ok) throw new Error('Failed to update payment');
-      setSuccess('Payment updated successfully!');
-      setEditingId(null);
-      setTimeout(() => window.location.reload(), 1000);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
 
-  // Delete payment
-  const handleDelete = async id => {
-    setError('');
-    setSuccess('');
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/payments/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error('Failed to delete payment');
-      setSuccess('Payment deleted successfully!');
-      setTimeout(() => window.location.reload(), 1000);
+      if (!res.ok) throw new Error("Failed to update payment");
+
+      const result = await res.json();
+      setSuccess("Payment updated successfully!");
+
+      // Update payments list inline
+      const updated = payments.map((p) =>
+        p._id === editingId ? { ...p, status: form.status } : p
+      );
+      setPayments(updated);
+
+      setEditingId(null);
     } catch (err) {
       setError(err.message);
     }
@@ -121,121 +74,80 @@ function Payments() {
 
   return (
     <CContainer className="py-4">
+      {editingId && (
+        <CCard className="mb-4">
+          <CCardHeader>
+            <h4>Edit Payment Status</h4>
+          </CCardHeader>
+          <CCardBody>
+            {error && <CAlert color="danger">{error}</CAlert>}
+            {success && <CAlert color="success">{success}</CAlert>}
+            <CForm onSubmit={handleUpdate}>
+              <CRow className="g-3 align-items-center">
+                <CCol md={4}>
+                  <CFormInput
+                    name="status"
+                    value={form.status}
+                    onChange={handleChange}
+                    placeholder="Status"
+                    required
+                    label="Status"
+                  />
+                </CCol>
+                <CCol md={4}>
+                  <CButton type="submit" color="warning" className="me-2" style={{ marginTop: 20 }}>
+                    Update
+                  </CButton>
+                  <CButton color="secondary" onClick={() => setEditingId(null)} style={{ marginTop: 20 }}>
+                    Cancel
+                  </CButton>
+                </CCol>
+              </CRow>
+            </CForm>
+          </CCardBody>
+        </CCard>
+      )}
+
       <CCard>
         <CCardHeader>
-          <h4 className="mb-0">{editingId ? "Edit Payment" : "Add Payment"}</h4>
+          <h4>Payments</h4>
         </CCardHeader>
         <CCardBody>
           {error && <CAlert color="danger">{error}</CAlert>}
-          {success && <CAlert color="success">{success}</CAlert>}
-          <CForm onSubmit={editingId ? handleUpdate : handleCreate}>
-            <CRow className="g-3 align-items-center">
-              <CCol md={2}>
-                <CFormSelect
-                  name="user"
-                  value={form.user}
-                  onChange={handleChange}
-                  required
-                  label="User"
-                >
-                  <option value="">Select User</option>
-                  {users.map(user => (
-                    <option key={user._id} value={user._id}>
-                      {user.username} ({user._id})
-                    </option>
-                  ))}
-                </CFormSelect>
-              </CCol>
-              <CCol md={2}>
-                <CFormSelect
-                  name="housekeeper"
-                  value={form.housekeeper}
-                  onChange={handleChange}
-                  required
-                  label="Housekeeper"
-                >
-                  <option value="">Select Housekeeper</option>
-                  {housekeepers.map(hk => (
-                    <option key={hk._id} value={hk._id}>
-                      {hk.name} ({hk._id})
-                    </option>
-                  ))}
-                </CFormSelect>
-              </CCol>
-              <CCol md={2}>
-                <CFormInput
-                  name="booking"
-                  value={form.booking}
-                  onChange={handleChange}
-                  placeholder="Booking ID"
-                  required
-                  label="Booking ID"
-                />
-              </CCol>
-              <CCol md={2}>
-                <CFormInput
-                  name="amount"
-                  value={form.amount}
-                  onChange={handleChange}
-                  placeholder="Amount"
-                  required
-                  label="Amount"
-                  type="number"
-                />
-              </CCol>
-              <CCol md={2}>
-                <CFormInput
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  placeholder="Status"
-                  required
-                  label="Status"
-                />
-              </CCol>
-              <CCol md={2}>
-                <CButton  type="submit" className="me-2" style={{ backgroundColor: 'rgb(170, 218, 170)', borderColor: 'rgb(170, 218, 170)', color: '#222', marginTop: 20 }}>
-                  {editingId ? "Update" : "Create"}
-                </CButton>
-                {editingId && (
-                  <CButton color="secondary" onClick={() => setEditingId(null)}>
-                    Cancel
-                  </CButton>
-                )}
-              </CCol>
-            </CRow>
-          </CForm>
-        </CCardBody>
-      </CCard>
-
-      <CCard className="mt-4">
-        <CCardHeader>
-          <h4 className="mb-0">Payments List</h4>
-        </CCardHeader>
-        <CCardBody>
-          <CTable hover responsive>
+          <CTable striped hover responsive>
             <CTableHead>
               <CTableRow>
-                {payments[0] && Object.keys(payments[0]).map(key => (
-                  <CTableHeaderCell key={key}>{key}</CTableHeaderCell>
-                ))}
+                <CTableHeaderCell>User</CTableHeaderCell>
+                <CTableHeaderCell>Email</CTableHeaderCell>
+                <CTableHeaderCell>Order ID</CTableHeaderCell>
+                <CTableHeaderCell>Amount (EGP)</CTableHeaderCell>
+                <CTableHeaderCell>Method</CTableHeaderCell>
+                <CTableHeaderCell>Status</CTableHeaderCell>
+                <CTableHeaderCell>Date</CTableHeaderCell>
+                <CTableHeaderCell>Error Message</CTableHeaderCell>
                 <CTableHeaderCell>Actions</CTableHeaderCell>
               </CTableRow>
             </CTableHead>
             <CTableBody>
-              {payments.map(payment => (
+              {payments.map((payment) => (
                 <CTableRow key={payment._id}>
-                  {Object.keys(payment).map(key => (
-                    <CTableDataCell key={key}>
-                      {typeof payment[key] === 'object' ? JSON.stringify(payment[key]) : String(payment[key])}
-                    </CTableDataCell>
-                  ))}
+                  <CTableDataCell>{payment.user?.username || "N/A"}</CTableDataCell>
+                  <CTableDataCell>{payment.user?.email || "N/A"}</CTableDataCell>
+                  <CTableDataCell>{payment.orderId}</CTableDataCell>
+                  <CTableDataCell>{payment.amount}</CTableDataCell>
+                  <CTableDataCell>{payment.paymentMethod}</CTableDataCell>
+                  <CTableDataCell>{payment.status}</CTableDataCell>
+                  <CTableDataCell>{new Date(payment.createdAt).toLocaleString()}</CTableDataCell>
                   <CTableDataCell>
-                    <CButton color="warning" size="sm" className="me-2" onClick={() => handleEdit(payment)}>
+                    {payment.paymentDetails?.redirectDetails?.["data.message"] || "—"}
+                  </CTableDataCell>
+                  <CTableDataCell>
+                    <CButton
+                      size="sm"
+                      style={{ backgroundColor: "rgb(170, 218, 170)" }}
+                      onClick={() => handleEdit(payment)}
+                    >
                       Edit
-                    </CButton>
-                    <CButton color="danger" size="sm" onClick={() => handleDelete(payment._id)}>
-                      Delete
                     </CButton>
                   </CTableDataCell>
                 </CTableRow>

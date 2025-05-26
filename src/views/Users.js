@@ -17,7 +17,7 @@ import {
   CCol,
   CAlert,
   CContainer,
-} from '@coreui/react'
+} from '@coreui/react';
 
 function Users() {
   const [users, setUsers] = useState([]);
@@ -33,27 +33,31 @@ function Users() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/users`)
+    fetch(`${import.meta.env.VITE_API_URL}/user/getUsers`)
       .then(res => res.json())
       .then(data => {
         setUsers(data.users || data.data?.users || data.data || []);
-      });
+      })
+      .catch(err => console.error("Failed to fetch users:", err));
   }, []);
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = e => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleCreate = async e => {
     e.preventDefault();
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/user/createUser`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       });
       if (!res.ok) throw new Error('Failed to create user');
       setSuccess('User created successfully!');
+      setForm({ username: "", email: "", password: "", phoneNumber: "", role: "user" });
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       setError(err.message);
@@ -75,11 +79,10 @@ function Users() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    // Don't send password if not changed
     const updateForm = { ...form };
-    if (!updateForm.password) delete updateForm.password;
+    delete updateForm.password; // Password updates not allowed here
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${editingId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/user/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updateForm)
@@ -87,26 +90,31 @@ function Users() {
       if (!res.ok) throw new Error('Failed to update user');
       setSuccess('User updated successfully!');
       setEditingId(null);
+      setForm({ username: "", email: "", password: "", phoneNumber: "", role: "user" });
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const handleDelete = async id => {
+  const handleDelete = async (id) => {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/${id}`, { method: "PATCH" });
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/user/deleteMe`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: false })  // soft delete
+      });
       if (!res.ok) throw new Error('Failed to delete user');
-      setSuccess('User deleted successfully!');
+      setSuccess('User deleted (deactivated) successfully!');
       setTimeout(() => window.location.reload(), 1000);
     } catch (err) {
       setError(err.message);
     }
   };
 
-  return (
+   return (
     <CContainer className="py-4">
       <CCard>
         <CCardHeader>
@@ -174,7 +182,8 @@ function Users() {
                 />
               </CCol>
               <CCol md={2}>
-                <CButton color="primary" type="submit" className="me-2">
+                <CButton style={{
+      backgroundColor: 'rgb(83, 142, 83)'}} type="submit" className="me-2">
                   {editingId ? "Update" : "Create"}
                 </CButton>
                 {editingId && (
@@ -195,37 +204,38 @@ function Users() {
         <CCardBody>
           <CTable hover responsive>
             <CTableHead>
-              <CTableRow>
-                {users[0] && Object.keys(users[0]).map(key => (
-                  <CTableHeaderCell key={key}>{key}</CTableHeaderCell>
-                ))}
-                <CTableHeaderCell>Actions</CTableHeaderCell>
-              </CTableRow>
-            </CTableHead>
-            <CTableBody>
-              {users.map(user => (
-                <CTableRow key={user._id}>
-                  {Object.keys(user).map(key => (
-                    <CTableDataCell key={key}>
-                      {typeof user[key] === 'object' ? JSON.stringify(user[key]) : String(user[key])}
-                    </CTableDataCell>
-                  ))}
-                  <CTableDataCell>
-                    <CButton color="warning" size="sm" className="me-2" onClick={() => handleEdit(user)}>
-                      Edit
-                    </CButton>
-                    <CButton color="danger" size="sm" onClick={() => handleDelete(user._id)}>
-                      Delete
-                    </CButton>
-                  </CTableDataCell>
-                </CTableRow>
-              ))}
-            </CTableBody>
+  <CTableRow>
+    <CTableHeaderCell>#</CTableHeaderCell>
+    <CTableHeaderCell>Username</CTableHeaderCell>
+    <CTableHeaderCell>User ID</CTableHeaderCell>
+    <CTableHeaderCell>Actions</CTableHeaderCell>
+  </CTableRow>
+</CTableHead>
+<CTableBody>
+  {users.map((user, index) => (
+    <CTableRow key={user._id}>
+      <CTableDataCell>{index + 1}</CTableDataCell>
+      <CTableDataCell>{user.username}</CTableDataCell>
+      <CTableDataCell>{user._id}</CTableDataCell>
+      <CTableDataCell>
+        <CButton style={{
+      backgroundColor: 'rgb(91, 180, 91)'}} size="sm" className="me-2" onClick={() => handleEdit(user)}>
+          Edit
+        </CButton>
+        <CButton color="danger" size="sm" onClick={() => handleDelete(user._id)}>
+          Delete
+        </CButton>
+      </CTableDataCell>
+    </CTableRow>
+  ))}
+</CTableBody>
+
           </CTable>
         </CCardBody>
       </CCard>
     </CContainer>
   );
 }
+
 
 export default Users;
