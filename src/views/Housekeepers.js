@@ -25,7 +25,7 @@ const daysOfWeek = [
 
 function Housekeepers() {
   const [housekeepers, setHousekeepers] = useState([]);
-  const [rawData, setRawData] = useState(null); // save raw response for debugging
+  const [rawData, setRawData] = useState(null);
   const [form, setForm] = useState({
     user: "",
     name: "",
@@ -35,7 +35,6 @@ function Housekeepers() {
     skills: "",
     photo: null
   });
-  // Use times as array of {start, end}
   const [availabilityList, setAvailabilityList] = useState([
     { day: '', date: '', times: [{ start: '', end: '' }] }
   ]);
@@ -48,8 +47,8 @@ function Housekeepers() {
     fetch(`${import.meta.env.VITE_API_URL}/housekeeper`)
       .then(res => res.json())
       .then(data => {
-      console.log("Raw API response:", data); // Inspect the full response
-      setRawData(data); // Save full response
+      console.log("Raw API response:", data);
+      setRawData(data);
       const hkList =
         data.housekeepers ||
         data.data?.housekeepers ||
@@ -98,41 +97,70 @@ function Housekeepers() {
   };
 
   const handleCreate = async e => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-  try {
-    const formData = new FormData();
-    formData.append("user", form.user);
-    formData.append("name", form.name);
-    formData.append("description", form.description);
-    formData.append("age", form.age);
-    formData.append("experience", form.experience);
-    formData.append("photo", form.photo); // ✅ Correct key for photo
+    try {
+      const formData = new FormData();
+      formData.append("user", form.user);
+      formData.append("name", form.name);
+      formData.append("description", form.description);
+      formData.append("age", form.age);
+      formData.append("experience", form.experience);
+      
+      // Only append photo if one is selected
+      if (form.photo) {
+        formData.append("image", form.photo);
+      }
 
-    const skillsArray = form.skills.split(',').map(s => s.trim()).filter(Boolean);
-    formData.append("skills", JSON.stringify(skillsArray));
+      const skillsArray = form.skills.split(',').map(s => s.trim()).filter(Boolean);
+      formData.append("skills", JSON.stringify(skillsArray));
 
-    const formattedAvailability = availabilityList.map(a => ({
-      ...a,
-      times: a.times.map(t => t.start && t.end ? `${t.start}-${t.end}` : '').filter(Boolean)
-    }));
-    formData.append("availability", JSON.stringify(formattedAvailability));
+      const formattedAvailability = availabilityList.map(a => ({
+        ...a,
+        times: a.times.map(t => t.start && t.end ? `${t.start}-${t.end}` : '').filter(Boolean)
+      }));
+      formData.append("availability", JSON.stringify(formattedAvailability));
 
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/housekeeper`, {
-      method: "POST",
-      body: formData
-    });
+      console.log('Sending FormData with keys:', Array.from(formData.keys()));
 
-    if (!res.ok) throw new Error('Failed to create housekeeper');
-    setSuccess('Housekeeper created successfully!');
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (err) {
-    setError('Failed to create housekeeper. Please check your input.');
-  }
-};
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/housekeeper`, {
+        method: "POST",
+        body: formData
+      });
 
+      if (!res.ok) {
+        const contentType = res.headers.get('content-type');
+        let errorMessage = `Server error (${res.status})`;
+        
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.error('JSON error response:', errorData);
+        } else {
+          const errorText = await res.text();
+          console.error('HTML error response:', errorText);
+          // Extract useful info from HTML error if possible
+          if (errorText.includes('Multer')) {
+            errorMessage = 'File upload error - check file size and format';
+          } else if (errorText.includes('validation')) {
+            errorMessage = 'Validation error - check required fields';
+          }
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await res.json();
+      console.log('Success response:', result);
+      setSuccess('Housekeeper created successfully!');
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      console.error("Error creating housekeeper:", err);
+      setError(err.message || 'Failed to create housekeeper');
+    }
+  };
 
   // Edit housekeeper
   const handleEdit = hk => {
@@ -144,6 +172,7 @@ function Housekeepers() {
       age: hk.age || "",
       experience: hk.experience || "",
       skills: Array.isArray(hk.skills) ? hk.skills.join(', ') : "",
+      photo: null // Reset photo field for editing
     });
     setAvailabilityList(
       Array.isArray(hk.availability) && hk.availability.length > 0
@@ -166,55 +195,53 @@ function Housekeepers() {
   };
 
   const handleUpdate = async (e) => {
-  e.preventDefault();
-  setError('');
-  setSuccess('');
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-  try {
-    // Update textual data (without image)
-    const payload = {
-      user: form.user,
-      name: form.name,
-      description: form.description,
-      age: form.age,
-      experience: form.experience,
-      skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
-      availability: availabilityList.map(a => ({
-        ...a,
-        times: a.times.map(t => t.start && t.end ? `${t.start}-${t.end}` : '').filter(Boolean)
-      }))
-    };
+    try {
+      // Update textual data (without image)
+      const payload = {
+        user: form.user,
+        name: form.name,
+        description: form.description,
+        age: form.age,
+        experience: form.experience,
+        skills: form.skills.split(',').map(s => s.trim()).filter(Boolean),
+        availability: availabilityList.map(a => ({
+          ...a,
+          times: a.times.map(t => t.start && t.end ? `${t.start}-${t.end}` : '').filter(Boolean)
+        }))
+      };
 
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/housekeeper/${editingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) throw new Error('Failed to update housekeeper details');
-
-    // ✅ Upload image if one is selected
-    if (form.photo) {
-      const formData = new FormData();
-      formData.append("image", form.photo);
-
-      const photoRes = await fetch(`${import.meta.env.VITE_API_URL}/housekeeper/${editingId}/photo`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/housekeeper/${editingId}`, {
         method: "PATCH",
-        body: formData
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
 
-      if (!photoRes.ok) throw new Error('Failed to upload photo');
+      if (!res.ok) throw new Error('Failed to update housekeeper details');
+
+      // Upload image if one is selected
+      if (form.photo) {
+        const formData = new FormData();
+        formData.append("image", form.photo);
+
+        const photoRes = await fetch(`${import.meta.env.VITE_API_URL}/housekeeper/${editingId}/photo`, {
+          method: "PATCH",
+          body: formData
+        });
+
+        if (!photoRes.ok) throw new Error('Failed to upload photo');
+      }
+
+      setSuccess("Housekeeper updated successfully!");
+      setEditingId(null);
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      setError(err.message || 'Update failed');
     }
-
-    setSuccess("Housekeeper updated successfully!");
-    setEditingId(null);
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (err) {
-    setError(err.message || 'Update failed');
-  }
-};
-
-
+  };
 
   // Delete housekeeper
   const handleDelete = async id => {
@@ -230,21 +257,12 @@ function Housekeepers() {
     }
   };
 
-  // --- Styling helpers ---
+  // Styling helpers
   const availabilityCardStyle = {
-    // border removed
     padding: 18,
     borderRadius: 14,
     marginBottom: 18,
     boxShadow: '0 2px 8px rgba(46,204,64,0.08)'
-  };
-
-  const labelStyle = {
-    fontWeight: 600,
-    fontSize: 16,
-    color: '#aadaaa',
-    marginBottom: 8,
-    letterSpacing: 0.5
   };
 
   const addBtnStyle = {
@@ -293,7 +311,6 @@ function Housekeepers() {
                   value={form.user}
                   onChange={handleChange}
                   placeholder="User ID"
-                  required
                   label="User ID"
                   style={{ background: "#23272f", borderRadius: 8 }}
                 />
@@ -346,16 +363,15 @@ function Housekeepers() {
                 />
               </CCol>
               <CCol md={6}>
-  <label style={{ fontWeight: 500 }}>Photo</label>
-  <input
-    type="file"
-    accept="image/*"
-    className="form-control"
-    onChange={(e) => setForm({ ...form, photo: e.target.files[0] })}
-    style={{ background: "#23272f", borderRadius: 8 }}
-  />
-</CCol>
-
+                <label style={{ fontWeight: 500 }}>Photo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="form-control"
+                  onChange={(e) => setForm({ ...form, photo: e.target.files[0] })}
+                  style={{ background: "#23272f", borderRadius: 8 }}
+                />
+              </CCol>
               <CCol md={6}>
                 <CFormInput
                   name="skills"
@@ -509,26 +525,46 @@ function Housekeepers() {
               </CTableRow>
             </CTableHead>
             <CTableBody>
-              {housekeepers.map(hk => (
+              {housekeepers.map((hk, index) => (
                 <CTableRow key={hk._id || index}>
                   <CTableDataCell>
-                    <img
-                      src={hk.photo}
-                      alt={hk.name}
+                    {hk.photo && hk.photo.trim() !== '' ? (
+                      <img
+                        src={hk.photo}
+                        alt={hk.name}
+                        style={{
+                          width: 50,
+                          height: 50,
+                          objectFit: 'cover',
+                          borderRadius: '50%',
+                          border: '2px solid #aadaaa',
+                          background: '#fff'
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
                       style={{
                         width: 50,
                         height: 50,
-                        objectFit: 'cover',
                         borderRadius: '50%',
                         border: '2px solid #aadaaa',
-                        background: '#fff'
+                        background: '#f0f0f0',
+                        display: hk.photo && hk.photo.trim() !== '' ? 'none' : 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        color: '#666'
                       }}
-                    />
+                    >
+                      No Photo
+                    </div>
                   </CTableDataCell>
                   <CTableDataCell style={{ fontWeight: 600 }}>{hk.name}</CTableDataCell>
-                  <CTableDataCell>
-          {hk._id}
-        </CTableDataCell>
+                  <CTableDataCell>{hk._id}</CTableDataCell>
                   <CTableDataCell>{hk.age}</CTableDataCell>
                   <CTableDataCell>{hk.experience} yrs</CTableDataCell>
                   <CTableDataCell>

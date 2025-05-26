@@ -54,12 +54,18 @@ function Users() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
-      });
-      if (!res.ok) throw new Error('Failed to create user');
-      setSuccess('User created successfully!');
+      }).then(res => res.json()).then(data => {
+setSuccess('User created successfully!');
       setForm({ username: "", email: "", password: "", phoneNumber: "", role: "user" });
       setTimeout(() => window.location.reload(), 1000);
+      }).catch(err => {
+        console.error("Error creating user:", err);
+        setError(err.message);
+      } );
+      
+      
     } catch (err) {
+      console.error("Error creating user:", err);
       setError(err.message);
     }
   };
@@ -176,7 +182,8 @@ function Users() {
                   label="Role"
                   options={[
                     { label: "User", value: "user" },
-                    { label: "Admin", value: "admin" }
+                    { label: "Admin", value: "admin" },
+                    { label: "Housekeeper", value: "housekeeper" }
                   ]}
                   required
                 />
